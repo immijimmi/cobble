@@ -27,6 +27,7 @@ class Wrapper(Component):
         self._server_started: Optional[datetime] = None
         self._task_schedule: list = []
         self._task_queue = deque()  # Only edit this via manager methods such as `.enqueue_task()`
+        self._server_output = deque()
 
         self._threads = []
 
@@ -114,7 +115,7 @@ class Wrapper(Component):
                     entry_is_repeating = schedule_entry[ScheduleEntryKey.is_repeating]
 
                     times_triggered = schedule_entry.get("times_triggered", 0)
-                    if not entry_is_repeating and times_triggered > 0:
+                    if (not entry_is_repeating) and times_triggered > 0:
                         continue
 
                     next_trigger_m = (times_triggered * entry_delay_m) + entry_delay_m
@@ -125,10 +126,23 @@ class Wrapper(Component):
             sleep(1/Constants.task_scheduler_poll_rate_hz)
 
     def thread_server_output(self) -> None:
+        """
+        Reads server output into `._server_output` for further processing.
+        Also responsible for editing `._is_server_loaded` to indicate when the server has finished loading,
+        based on specific output from the server
+        """
+
         while True:
             if self.is_server_process_running:
-                line = self._server_process.stdout.readline()
-                print(line.decode('ascii'), end='')
+                line = self._server_process.stdout.readline().decode('ascii')
+
+                # Check if the output indicates that the server has (pretty much) finished loading
+                if ("Unloading dimension:" in line) and (not self._is_server_loaded):
+                    debug("Server is online.")
+                    self._is_server_loaded = True
+
+                self._server_output.append(line)
+                print(line, end='')
 
     def task_write_to_server(self, msg: str) -> bool:
         if self.is_server_process_running:
@@ -201,6 +215,7 @@ class Wrapper(Component):
         self._server_started = None
         self._task_schedule.clear()  # Will be generated afresh when starting the server back up
         self.clear_queue()
+        self._server_output.clear()
         debug("Prior server runtime data cleared.")
 
     def clear_queue(self) -> None:
