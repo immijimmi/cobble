@@ -67,7 +67,9 @@ class Wrapper(Component):
     def thread_queue_handler(self) -> None:
         """
         Processes tasks from the task queue.
-        Also responsible for starting up the server whenever it is not running
+
+        Also responsible for starting up the server whenever it is not running, or restarting if it hangs
+        for too long when starting up
         """
 
         while True:
@@ -78,7 +80,15 @@ class Wrapper(Component):
                 info("Server is not running - queueing startup...")
                 self.enqueue_task(self.task_start_server.__name__)
 
-            if self.is_server_loading or (not self._task_queue):  # Server is still starting up, or the queue is empty
+            if self.is_server_loading:
+                if (datetime.now() - self._server_started).total_seconds() >= Config.server_hang_threshold_s:
+                    warning("Server has hung - killing process...")
+                    self.task_kill_server()
+
+                else:
+                    sleep(1/Constants.queue_poll_rate_hz)
+
+            elif not self._task_queue:
                 sleep(1/Constants.queue_poll_rate_hz)
 
             else:
@@ -128,21 +138,22 @@ class Wrapper(Component):
     def thread_server_output(self) -> None:
         """
         Reads server output into `._server_output` for further processing.
+
         Also responsible for editing `._is_server_loaded` to indicate when the server has finished loading,
         based on specific output from the server
         """
 
         while True:
             if self.is_server_process_running:
-                line = self._server_process.stdout.readline().decode('ascii')
+                line = self._server_process.stdout.readline().decode('utf-8', errors='replace')
 
                 # Check if the output indicates that the server has (pretty much) finished loading
-                if ("Unloading dimension:" in line) and (not self._is_server_loaded):
-                    debug("Server is online.")
+                if ("Unloading dimension 1" in line) and (not self._is_server_loaded):
+                    info("Server is online.")
                     self._is_server_loaded = True
 
-                self._server_output.append(line)
-                print(line, end='')
+                #self._server_output.append(line)  #####
+                print(line, end='')  ##### TODO: Replace with the above line once `._server_output` is being read from
 
     def task_write_to_server(self, msg: str) -> bool:
         if self.is_server_process_running:
@@ -203,9 +214,13 @@ class Wrapper(Component):
         self._task_queue.appendleft(task_details)
 
     def load_schedule(self) -> None:
-        with WorkingDirectory.LOCK:
-            with open(self._config.task_schedule_file, "r") as schedule_file:
-                self._task_schedule = loads(schedule_file.read())
+        try:
+            with WorkingDirectory.LOCK:
+                with open(self._config.task_schedule_file, "r") as schedule_file:
+                    self._task_schedule = loads(schedule_file.read())
+
+        except FileNotFoundError:
+            warning(f"Unable to load task schedule (could not locate the schedule file).")
 
     def clear_server_data(self) -> None:
         """
