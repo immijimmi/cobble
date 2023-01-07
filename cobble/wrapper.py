@@ -218,6 +218,7 @@ class Wrapper(Component):
             with WorkingDirectory.LOCK:
                 with open(self._config.task_schedule_file, "r") as schedule_file:
                     self._task_schedule = loads(schedule_file.read())
+            debug("Task schedule loaded.")
 
         except FileNotFoundError:
             warning(f"Unable to load task schedule (could not locate the schedule file).")
