@@ -85,8 +85,7 @@ class Wrapper(Component):
                     warning("Server has hung - killing process...")
                     self.task_kill_server()
 
-                else:
-                    sleep(1/Constants.queue_poll_rate_hz)
+                sleep(1/Constants.queue_poll_rate_hz)
 
             elif not self._task_queue:
                 sleep(1/Constants.queue_poll_rate_hz)
