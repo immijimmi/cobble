@@ -5,4 +5,4 @@
 cd ..
 venv\Scripts\python -m pip install -r requirements.txt
 
-start venv\Scripts\pythonw -m <package folder name>
+start venv\Scripts\pythonw -m cobble

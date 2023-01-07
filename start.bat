@@ -3,4 +3,4 @@
 
 pip install -r requirements.txt
 
-start pythonw -m <package folder name>
+start pythonw -m cobble
