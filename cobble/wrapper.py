@@ -182,8 +182,13 @@ class Wrapper(Component):
         return True
 
     def task_kill_server(self) -> bool:
+        """
+        Ends the server process without saving
+        """
+
         if self.is_server_process_running:
             self._server_process.kill()
+            self._server_process = None  # Done to ensure that `.is_server_process_running` returns False immediately
             return True
 
         else:
