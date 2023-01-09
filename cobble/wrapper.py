@@ -61,7 +61,7 @@ class Wrapper(Component):
     def is_server_loading(self) -> bool:
         return self.is_server_process_running and (not self.is_server_loaded)
 
-    # Server threads
+    # Wrapper threads
 
     def spawn_managed_thread(self, target: Callable):
         """
@@ -227,7 +227,7 @@ class Wrapper(Component):
         self.load_schedule()
         return True
 
-    # Server GUI
+    # Wrapper GUI
 
     def _render(self):
         pass  ##### TODO
