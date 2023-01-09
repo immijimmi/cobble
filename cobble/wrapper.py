@@ -39,7 +39,7 @@ class Wrapper(Component):
                 self.thread_task_scheduler
         ):
             debug(f"Starting new thread: {func.__name__}")
-            new_thread = Thread(target=func)
+            new_thread = Thread(target=func, daemon=True)
 
             self._threads.append(new_thread)
             new_thread.start()
@@ -83,7 +83,7 @@ class Wrapper(Component):
             if self.is_server_loading:
                 if (datetime.now() - self._server_started).total_seconds() >= Config.server_hang_threshold_s:
                     warning("Server has hung - killing process...")
-                    self.task_kill_server()
+                    self.kill_server()
 
                 sleep(1/Constants.queue_poll_rate_hz)
 
@@ -180,19 +180,6 @@ class Wrapper(Component):
         self.load_schedule()
         return True
 
-    def task_kill_server(self) -> bool:
-        """
-        Ends the server process without saving
-        """
-
-        if self.is_server_process_running:
-            self._server_process.kill()
-            return True
-
-        else:
-            warning("Unable to kill server (server is not running).")
-            return False
-
     def enqueue_task(
             self, name: str,
             args: Optional[tuple] = None, kwargs: Optional[Dict[str, Any]] = None,
@@ -233,11 +220,24 @@ class Wrapper(Component):
 
         self._server_started = None
         self._task_schedule.clear()  # Will be generated afresh when starting the server back up
-        self.clear_queue()
+        self._clear_queue()
         self._server_output.clear()
         debug("Prior server runtime data cleared.")
 
-    def clear_queue(self) -> None:
+    def kill_server(self) -> bool:
+        """
+        Ends the server process without saving
+        """
+
+        if self.is_server_process_running:
+            self._server_process.kill()
+            return True
+
+        else:
+            warning("Unable to kill server (server is not running).")
+            return False
+
+    def _clear_queue(self) -> None:
         """
         Should only be carried out in circumstances where any queued tasks can be discarded (for example,
         when restarting the server)
