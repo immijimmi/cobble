@@ -98,10 +98,11 @@ class Wrapper(Component):
         """
 
         if not self.is_server_process_running:  # Server has stopped (can be either gracefully or due to a crash)
+            info("Server is not running - cleaning up and queueing startup task...")
+
             # Clean up leftover data from previous server runtime
             self.clear_server_data()
 
-            info("Server is not running - queueing startup...")
             self.enqueue_task(self.task_start_server.__name__)
 
         if self.is_server_loading:
