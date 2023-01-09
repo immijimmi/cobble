@@ -6,7 +6,7 @@ from typing import Dict, Optional, Any, Callable
 from threading import Thread
 from subprocess import Popen, PIPE
 from datetime import datetime
-from json import loads
+from json import loads, decoder
 from logging import info, debug, warning, exception, error
 
 from .constants import Constants
@@ -242,6 +242,9 @@ class Wrapper(Component):
 
         except FileNotFoundError:
             warning(f"Unable to load task schedule (could not locate the schedule file).")
+
+        except decoder.JSONDecodeError:
+            error(f"Unable to load task schedule (error decoding from JSON).")
 
     def kill_server(self) -> bool:
         """
