@@ -7,7 +7,7 @@ from threading import Thread
 from subprocess import Popen, PIPE
 from datetime import datetime
 from json import loads
-from logging import info, debug, warning
+from logging import info, debug, warning, exception, error
 
 from .constants import Constants
 from .config import Config
@@ -29,6 +29,7 @@ class Wrapper(Component):
         self._task_queue = deque()  # Only edit this via manager methods such as `.enqueue_task()`
         self._server_output = deque()
 
+        self._is_any_thread_crashed = False  # If a thread crashes, the wrapper should gracefully stop operations
         self._threads = []
 
         # Start wrapper threads
@@ -68,10 +69,21 @@ class Wrapper(Component):
         """
 
         def custom_managed_thread():
-            while True:
-                target()
+            while not self._is_any_thread_crashed:
+                try:
+                    target()
 
-        debug(f"Starting new managed thread for: {target.__name__}")
+                except Exception:
+                    exception(f"An exception has occurred in the following thread function: {target.__name__}")
+
+                    error("In order to prevent unintended behaviour, all managed threads will now be discontinued...")
+                    self._is_any_thread_crashed = True
+
+                    error("If the server is still running, please close it before restarting this program.")
+
+            warning(f"Stopping managed thread for: {target.__name__}")
+
+        info(f"Spawning new managed thread for: {target.__name__}")
         new_thread = Thread(target=custom_managed_thread, daemon=True)
 
         self._threads.append(new_thread)
@@ -226,7 +238,7 @@ class Wrapper(Component):
             with WorkingDirectory.LOCK:
                 with open(self._config.task_schedule_file, "r") as schedule_file:
                     self._task_schedule = loads(schedule_file.read())
-            debug("Task schedule loaded.")
+            info("Task schedule loaded.")
 
         except FileNotFoundError:
             warning(f"Unable to load task schedule (could not locate the schedule file).")
