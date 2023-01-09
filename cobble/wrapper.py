@@ -187,7 +187,6 @@ class Wrapper(Component):
 
         if self.is_server_process_running:
             self._server_process.kill()
-            self._server_process = None  # Done to ensure that `.is_server_process_running` returns False immediately
             return True
 
         else:
