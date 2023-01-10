@@ -34,21 +34,19 @@ class LockedVar:
         return self._value
 
     @property
-    @contextmanager
-    def value_locked(self):
+    def lock(self):
         """
-        Use this property in a `with` statement to ensure that the variable's value does not change
-        within the enclosed block
+        Acquire this lock to ensure that the variable's value does not change
+        while it is held
         """
 
-        with self._lock:
-            yield
+        return self._lock
 
     @contextmanager
     def temporary_value(self, value):
         """
-        Use this method in a `with` statement to lock the variable's value to the provided value while
-        within the enclosed block
+        Use this context manager to set and lock the variable's value to the provided value while
+        within the enclosed block, then return it to its previous value before releasing the lock
         """
 
         with self._lock:
