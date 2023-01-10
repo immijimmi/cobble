@@ -11,7 +11,7 @@ from logging import info, debug, warning, exception, error
 
 from .constants import Constants
 from .config import Config
-from .methods import WorkingDirectory
+from .methods import WorkingDirectory, LockedVar
 from .enums import QueueTaskKey, ScheduleEntryKey
 
 
@@ -21,16 +21,21 @@ class Wrapper(Component):
 
         self._config = config
 
+        # Server process & process status
         self._server_process = None
         self._is_server_loaded: bool = False
-
         self._server_started: Optional[datetime] = None
+
+        # Process management metadata
         self._task_schedule: list = []
         self._task_queue = deque()  # Only edit this via manager methods such as `.enqueue_task()`
         self._server_output = deque()
 
-        self._is_any_thread_crashed = False  # If a thread crashes, the wrapper should gracefully stop operations
+        self._do_auto_restart_server = LockedVar(True)
+
+        # Wrapper status
         self._threads = []
+        self._is_any_thread_crashed = False  # If a thread crashes, the wrapper should gracefully stop operations
 
         # Start wrapper threads
         for thread_func in (
@@ -98,12 +103,17 @@ class Wrapper(Component):
         """
 
         if not self.is_server_process_running:  # Server has stopped (can be either gracefully or due to a crash)
-            info("Server is not running - cleaning up and queueing startup task...")
+            if self._do_auto_restart_server.value:
+                info("Server is not running - cleaning up and queueing startup task...")
 
-            # Clean up leftover data from previous server runtime
-            self.clear_server_data()
+                # Clean up leftover data from previous server runtime
+                self.clear_server_data()
 
-            self.enqueue_task(self.task_start_server.__name__)
+                self.enqueue_task(self.task_start_server.__name__)
+
+            else:
+                sleep(1/Constants.queue_poll_rate_hz)
+                return
 
         if self.is_server_loading:
             if (datetime.now() - self._server_started).total_seconds() >= Config.server_hang_threshold_s:
@@ -253,7 +263,11 @@ class Wrapper(Component):
         """
 
         if self.is_server_process_running:
-            self._server_process.kill()
+            with self._do_auto_restart_server.temporary_value(False):
+                self._server_process.terminate()
+                sleep(Constants.server_process_terminate_idle_s)
+                self._server_process.kill()
+                sleep(Constants.server_process_kill_idle_s)
             return True
 
         else:

@@ -17,3 +17,42 @@ class WorkingDirectory:
             yield
             if target_dir:
                 chdir(cwd)
+
+
+class LockedVar:
+    def __init__(self, value):
+        self._value = value
+        self._lock = Lock()
+
+    @property
+    def value(self):
+        """
+        Use this property when you just need to read the current value of this variable.
+        Does not lock the variable, it may still be edited at any time
+        """
+
+        return self._value
+
+    @property
+    @contextmanager
+    def value_locked(self):
+        """
+        Use this property in a `with` statement to ensure that the variable's value does not change
+        within the enclosed block
+        """
+
+        with self._lock:
+            yield
+
+    @contextmanager
+    def temporary_value(self, value):
+        """
+        Use this method in a `with` statement to lock the variable's value to the provided value while
+        within the enclosed block
+        """
+
+        with self._lock:
+            prior_value = self._value
+            self._value = value
+            yield
+            self._value = prior_value
