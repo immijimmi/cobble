@@ -20,6 +20,11 @@ class WorkingDirectory:
 
 
 class LockedVar:
+    """
+    Lockable variable for use with python's threading module.
+    Not safe for use with concurrency (e.g. multiprocessing), and should never store a mutable value
+    """
+
     def __init__(self, value):
         self._value = value
         self._lock = Lock()
